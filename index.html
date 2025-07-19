@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>動態權重隨機抽樣</title>
+  <style>
+    body { font-family: monospace; }
+    .result { white-space: pre; }
+    button { margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <h2>動態權重隨機抽樣</h2>
+  <button onclick="runSampling()">重新執行</button>
+  <div class="result" id="output"></div>
+  <script>
+    function runSampling() {
+      const m = [0, 0.8, 1, 1.2, 10, 20, 50, 100, 200];
+      const total = 1000;
+      const expectValue = 0.9;
+
+      // 計算權重
+      let nonzeroWeights = m.map(n => n !== 0 ? 1 / n : 0).filter(w => w > 0);
+      let sumNonzero = nonzeroWeights.reduce((a, b) => a + b, 0);
+      let weights = m.map(n => n === 0 ? sumNonzero : 1 / n);
+
+      function normalize(arr) {
+        const s = arr.reduce((a, b) => a + b, 0);
+        return arr.map(x => x / s);
+      }
+
+      function weightedRandomChoice(arr, weights) {
+        let r = Math.random();
+        let acc = 0;
+        for (let i = 0; i < arr.length; i++) {
+          acc += weights[i];
+          if (r < acc) return arr[i];
+        }
+        return arr[arr.length - 1];
+      }
+
+      // 動態抽樣
+      let result2 = [];
+      for (let i = 0; i < total; i++) {
+        if (i === 0) {
+          result2.push(weightedRandomChoice(m, normalize(weights)));
+        } else {
+          const currentAvg = result2.reduce((a, b) => a + b, 0) / result2.length;
+          let adjustedWeights = m.map((n, idx) => {
+            if (currentAvg < expectValue) {
+              return n < expectValue ? weights[idx] * 0.3 : weights[idx] * 1.2;
+            } else {
+              return n < expectValue ? weights[idx] * 1.5 : weights[idx] * 0.5;
+            }
+          });
+          adjustedWeights = normalize(adjustedWeights);
+          result2.push(weightedRandomChoice(m, adjustedWeights));
+        }
+      }
+
+      const avg = result2.reduce((a, b) => a + b, 0) / result2.length;
+      const first20Avg = result2.slice(0, 20).reduce((a, b) => a + b, 0) / 20;
+
+      // 顯示結果
+      let output = '';
+      output += '倍數種類 = 0, 0.8, 1, 1.2, 10, 20, 50, 100, 200 \n';
+      output += '取樣1000筆, 目標期望值0.9, 數列平均值：' + avg + '\n';
+      output += '前20筆的平均值：' + first20Avg + '\n';
+      output += '前20筆資料：\n' + result2.slice(0, 20).join('\n');
+      document.getElementById('output').textContent = output;
+    }
+
+    // 頁面載入時先執行一次
+    runSampling();
+  </script>
+</body>
+</html>
